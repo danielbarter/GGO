@@ -8,7 +8,7 @@ class ConfigurationSpace:
     """
     class representing a configuration space on M points:
 
-    { x^0, x^1, ..., x^{M-1} in R3 where x^i != x^j }
+    C = { x^0, x^1, ..., x^{M-1} in R3 where x^i != x^j }
     """
 
     def __init__(self, M):
@@ -84,4 +84,45 @@ class ConfigurationSpace:
                         symbol))
 
             self.angle_differential[angle_function] = differential
+
+
+class ConfigurationSpacePoint:
+    """
+    class representing points in a configuration space C
+    coordinates are a numpy array
+    """
+    def __init__(self, configuration_space, coordinates):
+
+        if coordinates.shape != (3 * configuration_space.M,):
+            raise Exception("coordinates have wrong shape")
+
+        for (i,j) in combinations(range(configuration_space.M), 2):
+            if (coordinates[3 * i : 3 * i + 3] ==
+                coordinates[3 * j : 3 * j + 3]).all():
+                raise Exception("not a valid point in configuration space")
+
+
+        self.configuration_space = configuration_space
+        self.coordinates = coordinates
+
+
+class QuotientSpacePoint:
+    """
+    class representing points in the quotient space C / G
+    chart is a list of invariant functions
+    coordinates are a numpy array
+    """
+
+    def __init__(self, configuration_space, chart, coordinates):
+
+        if len(chart) != 3 * configuration_space.M - 6:
+            raise Exception("wrong number of invariant functions")
+
+        if coordinates.shape != (3 * configuration_space.M - 6,):
+            raise Exception("coordinates have wrong shape")
+
+
+        self.configuration_space = configuration_space
+        self.chart = chart
+        self.coordinates = coordinates
 
