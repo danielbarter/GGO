@@ -1,4 +1,5 @@
 from GGO import *
 
 sp.init_printing()
-cs = ConfigurationSpace(4)
+cs3 = ConfigurationSpace(3)
+cs4 = ConfigurationSpace(4)
