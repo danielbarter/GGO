@@ -2,20 +2,37 @@ from itertools import combinations, permutations
 import sympy as sp
 import numpy as np
 
+def symbolic_exterior_derivative(symbol):
+    return sp.Symbol('d' + symbol.name)
 
 rotation_matrix_coordinate = sp.Matrix([
     [sp.Symbol('g_0^0'), sp.Symbol('g_1^0'), sp.Symbol('g_2^0')],
     [sp.Symbol('g_0^1'), sp.Symbol('g_1^1'), sp.Symbol('g_2^1')],
     [sp.Symbol('g_0^2'), sp.Symbol('g_1^2'), sp.Symbol('g_2^2')]])
 
+rotation_matrix_coordinate_differential = sp.Matrix([
+    [symbolic_exterior_derivative(rotation_matrix_coordinate[i,j])
+     for j in range(3)]
+    for i in range(3)])
+
+
 translation_matrix_coordinate = sp.transpose(sp.Matrix([[
     sp.Symbol('z^0'), sp.Symbol('z^1'), sp.Symbol('z^2')]]))
+
+translation_matrix_coordinate_differential = sp.transpose(sp.Matrix([
+    [symbolic_exterior_derivative(translation_matrix_coordinate[i])
+     for i in range(3)]]))
+
 
 euclidean_matrix_coordinate = (
     rotation_matrix_coordinate.row_join(
     translation_matrix_coordinate).col_join(
         sp.Matrix([[0,0,0,1]])))
 
+euclidean_matrix_coordinate_differential = (
+    rotation_matrix_coordinate_differential.row_join(
+    translation_matrix_coordinate_differential).col_join(
+    sp.Matrix([[0,0,0,0]])))
 
 euclidean_matrix_coordinate_inverse = (
     sp.transpose(rotation_matrix_coordinate).row_join(
@@ -23,18 +40,6 @@ euclidean_matrix_coordinate_inverse = (
         translation_matrix_coordinate).col_join(
             sp.Matrix([[0,0,0,1]])))
 
-rotation_matrix_coordinate_differential = sp.Matrix([
-    [sp.Symbol('dg_0^0'), sp.Symbol('dg_1^0'), sp.Symbol('dg_2^0')],
-    [sp.Symbol('dg_0^1'), sp.Symbol('dg_1^1'), sp.Symbol('dg_2^1')],
-    [sp.Symbol('dg_0^2'), sp.Symbol('dg_1^2'), sp.Symbol('dg_2^2')]])
-
-translation_matrix_coordinate_differential = sp.transpose(sp.Matrix([[
-    sp.Symbol('dz^0'), sp.Symbol('dz^1'), sp.Symbol('dz^2')]]))
-
-euclidean_matrix_coordinate_differential = (
-    rotation_matrix_coordinate_differential.row_join(
-    translation_matrix_coordinate_differential).col_join(
-    sp.Matrix([[0,0,0,0]])))
 
 maurer_cartan_form = (
     euclidean_matrix_coordinate_inverse *
@@ -61,12 +66,10 @@ class ConfigurationSpace:
 
 
         for i in range(M):
-            for symbol in self.cartesian_coordinate[i]:
-                self.cartesian_coordinate_differential[i] = [
-                    sp.Symbol('dx_0^' + str(i)),
-                    sp.Symbol('dx_1^' + str(i)),
-                    sp.Symbol('dx_2^' + str(i))]
-
+            self.cartesian_coordinate_differential[i] = [
+                symbolic_exterior_derivative(symbol)
+                for symbol in self.cartesian_coordinate[i]
+            ]
 
         # cache dicts
         self._distance_expression = {}
