@@ -15,19 +15,19 @@ class ConfigurationSpace:
 
         self.M = M
 
-        self.cartesian_coordinate_symbol = {}
+        self.cartesian_coordinate = {}
 
         for i in range(M):
-            self.cartesian_coordinate_symbol[i] = [
+            self.cartesian_coordinate[i] = [
                 sp.Symbol('x_0^' + str(i)),
                 sp.Symbol('x_1^' + str(i)),
                 sp.Symbol('x_2^' + str(i))]
 
-        self.cartesian_coordinate_differentials = {}
+        self.cartesian_coordinate_differential = {}
 
         for i in range(M):
-            for symbol in self.cartesian_coordinate_symbol[i]:
-                self.cartesian_coordinate_differentials[i] = [
+            for symbol in self.cartesian_coordinate[i]:
+                self.cartesian_coordinate_differential[i] = [
                     sp.Symbol('dx_0^' + str(i)),
                     sp.Symbol('dx_1^' + str(i)),
                     sp.Symbol('dx_2^' + str(i))]
@@ -35,13 +35,13 @@ class ConfigurationSpace:
 
         # we represent a distance invariant function as a tuple (i,j)
         # where i < j. we represent an angle invariant function as s
-        # tuble (base,i,j) where i < j
+        # tuple (base,i,j) where i < j
 
         self.distance_expression = {}
         for (i,j) in combinations(range(M), 2):
             displacement_vector = (
-                sp.Matrix([self.cartesian_coordinate_symbol[i]]) -
-                sp.Matrix([self.cartesian_coordinate_symbol[j]])
+                sp.Matrix([self.cartesian_coordinate[i]]) -
+                sp.Matrix([self.cartesian_coordinate[j]])
             )
 
             self.distance_expression[(i,j)] = displacement_vector.dot(
@@ -55,13 +55,13 @@ class ConfigurationSpace:
                 continue
 
             displacement_vector_1 = (
-                sp.Matrix([self.cartesian_coordinate_symbol[i]]) -
-                sp.Matrix([self.cartesian_coordinate_symbol[base]])
+                sp.Matrix([self.cartesian_coordinate[i]]) -
+                sp.Matrix([self.cartesian_coordinate[base]])
             )
 
             displacement_vector_2 = (
-                sp.Matrix([self.cartesian_coordinate_symbol[j]]) -
-                sp.Matrix([self.cartesian_coordinate_symbol[base]])
+                sp.Matrix([self.cartesian_coordinate[j]]) -
+                sp.Matrix([self.cartesian_coordinate[base]])
             )
 
 
@@ -72,10 +72,10 @@ class ConfigurationSpace:
         self.distance_differential = {}
         for distance_function in self.distance_expression:
             accumulator = 0
-            for i in self.cartesian_coordinate_symbol:
+            for i in self.cartesian_coordinate:
                 for symbol, differential in zip(
-                        self.cartesian_coordinate_symbol[i],
-                        self.cartesian_coordinate_differentials[i]):
+                        self.cartesian_coordinate[i],
+                        self.cartesian_coordinate_differential[i]):
 
                     accumulator += sp.diff(
                         self.distance_expression[distance_function],
@@ -88,10 +88,10 @@ class ConfigurationSpace:
         self.angle_differential = {}
         for angle_function in self.angle_expression:
             accumulator = 0
-            for i in self.cartesian_coordinate_symbol:
+            for i in self.cartesian_coordinate:
                 for symbol, differential in zip(
-                        self.cartesian_coordinate_symbol[i],
-                        self.cartesian_coordinate_differentials[i]):
+                        self.cartesian_coordinate[i],
+                        self.cartesian_coordinate_differential[i]):
 
                     accumulator += sp.diff(
                         self.angle_expression[angle_function],
@@ -100,3 +100,33 @@ class ConfigurationSpace:
             self.angle_differential[angle_function] = accumulator
 
 
+        # moving frames are parameterized by a tuple tuple (base,i,j)
+        # where i < j.
+
+        self.moving_frame = {}
+        for angle_function in self.angle_expression:
+            (base, i, j) = angle_function
+
+            base_vector = sp.Matrix([self.cartesian_coordinate[base]])
+
+            displacement_vector_1 = (
+                sp.Matrix([self.cartesian_coordinate[i]]) -
+                sp.Matrix([self.cartesian_coordinate[base]])
+            )
+
+            displacement_vector_2 = (
+                sp.Matrix([self.cartesian_coordinate[j]]) -
+                sp.Matrix([self.cartesian_coordinate[base]])
+            )
+
+            column_1 = displacement_vector_1
+            column_2 = displacement_vector_1.cross(displacement_vector_2)
+            column_3 = column_1.cross(column_2)
+
+            rotation_matrix = sp.transpose(
+                sp.Matrix([column_1, column_2, column_3]))
+
+
+            self.moving_frame[angle_function] = (
+                rotation_matrix,
+                base_vector)
