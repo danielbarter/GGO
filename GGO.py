@@ -3,11 +3,40 @@ import sympy as sp
 import numpy as np
 
 
-class EuclideanGroup:
-    """
-    class representing the euclidean group SO(3) semidirect R3
-    """
+rotation_matrix_coordinate = sp.Matrix([
+    [sp.Symbol('g_0^0'), sp.Symbol('g_1^0'), sp.Symbol('g_2^0')],
+    [sp.Symbol('g_0^1'), sp.Symbol('g_1^1'), sp.Symbol('g_2^1')],
+    [sp.Symbol('g_0^2'), sp.Symbol('g_1^2'), sp.Symbol('g_2^2')]])
 
+translation_matrix_coordinate = sp.transpose(sp.Matrix([[
+    sp.Symbol('z^0'), sp.Symbol('z^1'), sp.Symbol('z^2')]]))
+
+euclidean_matrix_coordinate = (
+    rotation_matrix_coordinate.row_join(
+    translation_matrix_coordinate).col_join(
+        sp.Matrix([[0,0,0,1]])))
+
+
+euclidean_matrix_coordinate_inverse = (
+    sp.transpose(rotation_matrix_coordinate).row_join(
+        - sp.transpose(rotation_matrix_coordinate) *
+        translation_matrix_coordinate).col_join(
+            sp.Matrix([[0,0,0,1]])))
+
+rotation_matrix_coordinate_differential = sp.Matrix([
+    [sp.Symbol('dg_0^0'), sp.Symbol('dg_1^0'), sp.Symbol('dg_2^0')],
+    [sp.Symbol('dg_0^1'), sp.Symbol('dg_1^1'), sp.Symbol('dg_2^1')],
+    [sp.Symbol('dg_0^2'), sp.Symbol('dg_1^2'), sp.Symbol('dg_2^2')]])
+
+translation_matrix_coordinate_differential = sp.transpose(sp.Matrix([[
+    sp.Symbol('dz^0'), sp.Symbol('dz^1'), sp.Symbol('dz^2')]]))
+
+euclidean_matrix_coordinate_differential = (
+    rotation_matrix_coordinate_differential.row_join(
+    translation_matrix_coordinate_differential).col_join(
+    sp.Matrix([[0,0,0,0]])))
+
+maurer_cartan_form = euclidean_matrix_coordinate_inverse * euclidean_matrix_coordinate_differential
 
 class ConfigurationSpace:
     """
