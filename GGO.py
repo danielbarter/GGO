@@ -9,7 +9,6 @@ class EuclideanGroup:
     """
 
 
-
 class ConfigurationSpace:
     """
     class representing a configuration space on M points:
@@ -22,11 +21,6 @@ class ConfigurationSpace:
         self.M = M
         self.cartesian_coordinate = {}
         self.cartesian_coordinate_differential = {}
-        self._distance_expression = {}
-        self._angle_expression = {}
-        self._distance_differential = {}
-        self._angle_differential = {}
-        self._moving_frame = {}
 
         for i in range(M):
             self.cartesian_coordinate[i] = [
@@ -41,6 +35,14 @@ class ConfigurationSpace:
                     sp.Symbol('dx_0^' + str(i)),
                     sp.Symbol('dx_1^' + str(i)),
                     sp.Symbol('dx_2^' + str(i))]
+
+
+        # cache dicts
+        self._distance_expression = {}
+        self._angle_expression = {}
+        self._moving_frame_expression = {}
+        self._distance_differential = {}
+        self._angle_differential = {}
 
 
     def validate_distance_function(self, distance_function):
@@ -119,13 +121,13 @@ class ConfigurationSpace:
         return self._angle_expression[angle_function]
 
 
-    def moving_frame(self, angle_function):
+    def moving_frame_expression(self, angle_function):
         """
         moving frame is parameterized by an angle function
         """
         self.validate_angle_function(angle_function)
 
-        if angle_function not in self._moving_frame:
+        if angle_function not in self._moving_frame_expression:
             (base, i, j) = angle_function
 
             base_vector = sp.transpose(sp.Matrix([self.cartesian_coordinate[base]]))
@@ -151,29 +153,34 @@ class ConfigurationSpace:
                 sp.Matrix([[0,0,0,1]])
             )
 
-            self._moving_frame[angle_function] = full_matrix
+            self._moving_frame_expression[angle_function] = full_matrix
 
-        return self._moving_frame[angle_function]
+        return self._moving_frame_expression[angle_function]
 
+
+    def exterior_derivative(self, expression):
+        """
+        compute exterior derivative in cartesian coordinates
+       """
+        accumulator = 0
+        for i in self.cartesian_coordinate:
+            for symbol, differential in zip(
+                    self.cartesian_coordinate[i],
+                    self.cartesian_coordinate_differential[i]):
+
+                accumulator += sp.diff(
+                    expression,
+                    symbol) * differential
+
+        return accumulator
 
 
     def distance_differential(self, distance_function):
 
         if distance_function not in self._distance_differential:
 
-            distance_expression = self.distance_expression(distance_function)
-
-            accumulator = 0
-            for i in self.cartesian_coordinate:
-                for symbol, differential in zip(
-                        self.cartesian_coordinate[i],
-                        self.cartesian_coordinate_differential[i]):
-
-                    accumulator += sp.diff(
-                        distance_expression,
-                        symbol) * differential
-
-                self._distance_differential[distance_function] = accumulator
+            self._distance_differential[distance_function] = self.exterior_derivative(
+                self.distance_expression(distance_function))
 
         return self._distance_differential[distance_function]
 
@@ -182,20 +189,8 @@ class ConfigurationSpace:
 
         if angle_function not in self._angle_differential:
 
-
-            angle_expression = self.angle_expression(angle_function)
-
-            accumulator = 0
-            for i in self.cartesian_coordinate:
-                for symbol, differential in zip(
-                        self.cartesian_coordinate[i],
-                        self.cartesian_coordinate_differential[i]):
-
-                    accumulator += sp.diff(
-                        angle_expression,
-                        symbol) * differential
-
-            self._angle_differential[angle_function] = accumulator
+            self._angle_differential[angle_function] = self.exterior_derivative(
+                self.angle_expression(angle_function))
 
         return self._angle_differential[angle_function]
 
