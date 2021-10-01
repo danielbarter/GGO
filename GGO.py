@@ -15,7 +15,6 @@ rotation_matrix_coordinate_differential = sp.Matrix([
      for j in range(3)]
     for i in range(3)])
 
-
 translation_matrix_coordinate = sp.transpose(sp.Matrix([[
     sp.Symbol('z^0'), sp.Symbol('z^1'), sp.Symbol('z^2')]]))
 
@@ -40,10 +39,10 @@ euclidean_matrix_coordinate_inverse = (
         translation_matrix_coordinate).col_join(
             sp.Matrix([[0,0,0,1]])))
 
-
 maurer_cartan_form = (
     euclidean_matrix_coordinate_inverse *
     euclidean_matrix_coordinate_differential )
+
 
 class ConfigurationSpace:
     """
@@ -77,6 +76,7 @@ class ConfigurationSpace:
         self._moving_frame_expression = {}
         self._distance_differential = {}
         self._angle_differential = {}
+        self._moving_frame_differential = {}
 
 
     def validate_distance_function(self, distance_function):
