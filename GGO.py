@@ -36,7 +36,9 @@ euclidean_matrix_coordinate_differential = (
     translation_matrix_coordinate_differential).col_join(
     sp.Matrix([[0,0,0,0]])))
 
-maurer_cartan_form = euclidean_matrix_coordinate_inverse * euclidean_matrix_coordinate_differential
+maurer_cartan_form = (
+    euclidean_matrix_coordinate_inverse *
+    euclidean_matrix_coordinate_differential )
 
 class ConfigurationSpace:
     """
