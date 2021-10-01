@@ -3,6 +3,12 @@ import sympy as sp
 import numpy as np
 
 
+class EuclideanGroup:
+    """
+    class representing the euclidean group SO(3) semidirect R3
+    """
+
+
 
 class ConfigurationSpace:
     """
@@ -14,8 +20,13 @@ class ConfigurationSpace:
     def __init__(self, M):
 
         self.M = M
-
         self.cartesian_coordinate = {}
+        self.cartesian_coordinate_differential = {}
+        self._distance_expression = {}
+        self._angle_expression = {}
+        self._distance_differential = {}
+        self._angle_differential = {}
+        self._moving_frame = {}
 
         for i in range(M):
             self.cartesian_coordinate[i] = [
@@ -23,7 +34,6 @@ class ConfigurationSpace:
                 sp.Symbol('x_1^' + str(i)),
                 sp.Symbol('x_2^' + str(i))]
 
-        self.cartesian_coordinate_differential = {}
 
         for i in range(M):
             for symbol in self.cartesian_coordinate[i]:
@@ -33,26 +43,64 @@ class ConfigurationSpace:
                     sp.Symbol('dx_2^' + str(i))]
 
 
-        # we represent a distance invariant function as a tuple (i,j)
-        # where i < j. we represent an angle invariant function as s
-        # tuple (base,i,j) where i < j
+    def validate_distance_function(self, distance_function):
+        (i,j) = distance_function
 
-        self.distance_expression = {}
-        for (i,j) in combinations(range(M), 2):
+        if (i >= j or
+            i >= self.M or
+            j >= self.M
+            ):
+            raise Exception("not a valid distance function")
+
+
+    def validate_angle_function(self, angle_function):
+        (base, i, j) = angle_function
+
+        if (len(set(angle_function)) < 3 or
+            i >= j or
+            base >= self.M or
+            i >= self.M or
+            j >= self.M
+            ):
+            raise Exception("not a valid angle function")
+
+
+
+    def distance_expression(self, distance_function):
+        """
+        we represent a distance invariant function as a tuple (i,j)
+        where i < j, i < M and j < M
+        """
+
+        self.validate_distance_function(distance_function)
+
+        if distance_function not in self._distance_expression:
+
+            (i,j) = distance_function
+
             displacement_vector = (
                 sp.Matrix([self.cartesian_coordinate[i]]) -
                 sp.Matrix([self.cartesian_coordinate[j]])
             )
 
-            self.distance_expression[(i,j)] = displacement_vector.dot(
+            self._distance_expression[distance_function] = displacement_vector.dot(
                 displacement_vector)
 
+        return self._distance_expression[distance_function]
 
 
-        self.angle_expression = {}
-        for (base, i, j) in permutations(range(M), 3):
-            if i > j:
-                continue
+    def angle_expression(self, angle_function):
+        """
+        we represent an angle invariant function as a
+        tuple (base,i,j) with no repeats where i < j,
+        base < M, i < M and j < M
+        """
+
+        self.validate_angle_function(angle_function)
+
+        if angle_function not in self._angle_expression:
+
+            (base, i, j) = angle_function
 
             displacement_vector_1 = (
                 sp.Matrix([self.cartesian_coordinate[i]]) -
@@ -65,46 +113,19 @@ class ConfigurationSpace:
             )
 
 
-            self.angle_expression[(base,i,j)] = displacement_vector_1.dot(
+            self._angle_expression[angle_function] = displacement_vector_1.dot(
                 displacement_vector_2)
 
-
-        self.distance_differential = {}
-        for distance_function in self.distance_expression:
-            accumulator = 0
-            for i in self.cartesian_coordinate:
-                for symbol, differential in zip(
-                        self.cartesian_coordinate[i],
-                        self.cartesian_coordinate_differential[i]):
-
-                    accumulator += sp.diff(
-                        self.distance_expression[distance_function],
-                        symbol) * differential
-
-            self.distance_differential[distance_function] = accumulator
+        return self._angle_expression[angle_function]
 
 
+    def moving_frame(self, angle_function):
+        """
+        moving frame is parameterized by an angle function
+        """
+        self.validate_angle_function(angle_function)
 
-        self.angle_differential = {}
-        for angle_function in self.angle_expression:
-            accumulator = 0
-            for i in self.cartesian_coordinate:
-                for symbol, differential in zip(
-                        self.cartesian_coordinate[i],
-                        self.cartesian_coordinate_differential[i]):
-
-                    accumulator += sp.diff(
-                        self.angle_expression[angle_function],
-                        symbol) * differential
-
-            self.angle_differential[angle_function] = accumulator
-
-
-        # moving frames are parameterized by a tuple tuple (base,i,j)
-        # where i < j.
-
-        self.moving_frame = {}
-        for angle_function in self.angle_expression:
+        if angle_function not in self._moving_frame:
             (base, i, j) = angle_function
 
             base_vector = sp.transpose(sp.Matrix([self.cartesian_coordinate[base]]))
@@ -130,4 +151,52 @@ class ConfigurationSpace:
                 sp.Matrix([[0,0,0,1]])
             )
 
-            self.moving_frame[angle_function] = full_matrix
+            self._moving_frame[angle_function] = full_matrix
+
+        return self._moving_frame[angle_function]
+
+
+
+    def distance_differential(self, distance_function):
+
+        if distance_function not in self._distance_differential:
+
+            distance_expression = self.distance_expression(distance_function)
+
+            accumulator = 0
+            for i in self.cartesian_coordinate:
+                for symbol, differential in zip(
+                        self.cartesian_coordinate[i],
+                        self.cartesian_coordinate_differential[i]):
+
+                    accumulator += sp.diff(
+                        distance_expression,
+                        symbol) * differential
+
+                self._distance_differential[distance_function] = accumulator
+
+        return self._distance_differential[distance_function]
+
+
+    def angle_differential(self, angle_function):
+
+        if angle_function not in self._angle_differential:
+
+
+            angle_expression = self.angle_expression(angle_function)
+
+            accumulator = 0
+            for i in self.cartesian_coordinate:
+                for symbol, differential in zip(
+                        self.cartesian_coordinate[i],
+                        self.cartesian_coordinate_differential[i]):
+
+                    accumulator += sp.diff(
+                        angle_expression,
+                        symbol) * differential
+
+            self._angle_differential[angle_function] = accumulator
+
+        return self._angle_differential[angle_function]
+
+
