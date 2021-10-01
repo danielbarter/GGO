@@ -107,7 +107,7 @@ class ConfigurationSpace:
         for angle_function in self.angle_expression:
             (base, i, j) = angle_function
 
-            base_vector = sp.Matrix([self.cartesian_coordinate[base]])
+            base_vector = sp.transpose(sp.Matrix([self.cartesian_coordinate[base]]))
 
             displacement_vector_1 = (
                 sp.Matrix([self.cartesian_coordinate[i]]) -
@@ -126,7 +126,8 @@ class ConfigurationSpace:
             rotation_matrix = sp.transpose(
                 sp.Matrix([column_1, column_2, column_3]))
 
+            full_matrix = rotation_matrix.row_join(base_vector).col_join(
+                sp.Matrix([[0,0,0,1]])
+            )
 
-            self.moving_frame[angle_function] = (
-                rotation_matrix,
-                base_vector)
+            self.moving_frame[angle_function] = full_matrix
