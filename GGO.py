@@ -1,46 +1,84 @@
+from multiprocessing import Pool
 import sympy as sp
 import numpy as np
 
-def symbolic_exterior_derivative(symbol):
-    return sp.Symbol('d' + symbol.name)
 
-rotation_matrix_coordinate = sp.Matrix([
-    [sp.Symbol('g_0^0'), sp.Symbol('g_1^0'), sp.Symbol('g_2^0')],
-    [sp.Symbol('g_0^1'), sp.Symbol('g_1^1'), sp.Symbol('g_2^1')],
-    [sp.Symbol('g_0^2'), sp.Symbol('g_1^2'), sp.Symbol('g_2^2')]])
+# exterior derivative
+d = sp.Function('d')
 
-rotation_matrix_coordinate_differential = sp.Matrix([
-    [symbolic_exterior_derivative(rotation_matrix_coordinate[i,j])
-     for j in range(3)]
-    for i in range(3)])
+def chunks(lst, n):
+    """iterator returning successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
-translation_matrix_coordinate = sp.transpose(sp.Matrix([[
-    sp.Symbol('z^0'), sp.Symbol('z^1'), sp.Symbol('z^2')]]))
-
-translation_matrix_coordinate_differential = sp.transpose(sp.Matrix([
-    [symbolic_exterior_derivative(translation_matrix_coordinate[i])
-     for i in range(3)]]))
+def matrix_map(matrix, func, num_threads=8):
+    (m,n) = matrix.shape
+    entry_list = []
+    for i in range(m):
+        for j in range(n):
+            entry_list.append(matrix[i,j])
 
 
-euclidean_matrix_coordinate = (
-    rotation_matrix_coordinate.row_join(
-    translation_matrix_coordinate).col_join(
-        sp.Matrix([[0,0,0,1]])))
+    with Pool(min(m * n, num_threads)) as p:
+        entry_list_simplified = p.map(func, entry_list)
 
-euclidean_matrix_coordinate_differential = (
-    rotation_matrix_coordinate_differential.row_join(
-    translation_matrix_coordinate_differential).col_join(
-    sp.Matrix([[0,0,0,0]])))
+    return sp.Matrix(list(chunks(entry_list_simplified, n)))
 
-euclidean_matrix_coordinate_inverse = (
-    sp.transpose(rotation_matrix_coordinate).row_join(
-        - sp.transpose(rotation_matrix_coordinate) *
+
+def simplify(e):
+    return e.simplify()
+
+
+def maurer_cartan_constructor():
+    rotation_matrix_coordinate_list = [
+        [sp.Symbol('g_0^0'), sp.Symbol('g_1^0'), sp.Symbol('g_2^0')],
+        [sp.Symbol('g_0^1'), sp.Symbol('g_1^1'), sp.Symbol('g_2^1')],
+        [sp.Symbol('g_0^2'), sp.Symbol('g_1^2'), sp.Symbol('g_2^2')]]
+
+    rotation_matrix_coordinate = sp.Matrix(rotation_matrix_coordinate_list)
+
+    rotation_matrix_coordinate_differential = sp.Matrix(
+        [[d(symbol) for symbol in row]
+         for row in rotation_matrix_coordinate_list]
+    )
+
+    translation_matrix_coordinate_list = [
+        sp.Symbol('z^0'), sp.Symbol('z^1'), sp.Symbol('z^2')]
+
+    translation_matrix_coordinate = sp.transpose(sp.Matrix(
+        [translation_matrix_coordinate_list]))
+
+    translation_matrix_coordinate_differential = sp.transpose(sp.Matrix([
+        [d(translation_matrix_coordinate[i])
+         for i in range(3)]]))
+
+
+    euclidean_matrix_coordinate = (
+        rotation_matrix_coordinate.row_join(
         translation_matrix_coordinate).col_join(
             sp.Matrix([[0,0,0,1]])))
 
-maurer_cartan_form = (
-    euclidean_matrix_coordinate_inverse *
-    euclidean_matrix_coordinate_differential )
+    euclidean_matrix_coordinate_differential = (
+        rotation_matrix_coordinate_differential.row_join(
+        translation_matrix_coordinate_differential).col_join(
+        sp.Matrix([[0,0,0,0]])))
+
+    euclidean_matrix_coordinate_inverse = (
+        sp.transpose(rotation_matrix_coordinate).row_join(
+            - sp.transpose(rotation_matrix_coordinate) *
+            translation_matrix_coordinate).col_join(
+                sp.Matrix([[0,0,0,1]])))
+
+    maurer_cartan_form = (
+        euclidean_matrix_coordinate_inverse *
+        euclidean_matrix_coordinate_differential )
+
+    return (
+        euclidean_matrix_coordinate,
+        maurer_cartan_form)
+
+
+(euclidean_matrix_coordinate, maurer_cartan_form) = maurer_cartan_constructor()
 
 
 class ConfigurationSpace:
@@ -65,7 +103,7 @@ class ConfigurationSpace:
 
         for i in range(M):
             self.cartesian_coordinate_differential[i] = [
-                symbolic_exterior_derivative(symbol)
+                d(symbol)
                 for symbol in self.cartesian_coordinate[i]
             ]
 
@@ -175,18 +213,33 @@ class ConfigurationSpace:
                 sp.Matrix([self.cartesian_coordinate[base]])
             )
 
-            column_1 = displacement_vector_1
-            column_2 = displacement_vector_1.cross(displacement_vector_2)
+
+            column_1_unnormalized = displacement_vector_1
+            column_2_unnormalized = displacement_vector_1.cross(displacement_vector_2)
+
+            column_1 = column_1_unnormalized / sp.sqrt(
+                column_1_unnormalized.dot(column_1_unnormalized))
+
+            column_2 = column_2_unnormalized / sp.sqrt(
+                column_2_unnormalized.dot(column_2_unnormalized))
+
+
             column_3 = column_1.cross(column_2)
 
             rotation_matrix = sp.transpose(
-                sp.Matrix([column_1, column_2, column_3]))
+                sp.Matrix(
+                    [column_1,
+                     column_2,
+                     column_3]))
 
             full_matrix = rotation_matrix.row_join(base_vector).col_join(
                 sp.Matrix([[0,0,0,1]])
             )
 
-            self._moving_frame_expression[angle_function] = full_matrix
+            self._moving_frame_expression[angle_function] = matrix_map(
+                full_matrix,
+                simplify
+            )
 
         return self._moving_frame_expression[angle_function]
 
@@ -212,8 +265,10 @@ class ConfigurationSpace:
 
         if distance_function not in self._distance_differential:
 
+            distance_expression = self.distance_expression(distance_function)
+
             self._distance_differential[distance_function] = self.exterior_derivative(
-                self.distance_expression(distance_function))
+                distance_expression)
 
         return self._distance_differential[distance_function]
 
@@ -222,9 +277,50 @@ class ConfigurationSpace:
 
         if angle_function not in self._angle_differential:
 
+            angle_expression = self.angle_expression(angle_function)
+
             self._angle_differential[angle_function] = self.exterior_derivative(
-                self.angle_expression(angle_function))
+                angle_expression)
 
         return self._angle_differential[angle_function]
+
+
+    def moving_frame_differential(self, angle_function):
+        if angle_function not in self._moving_frame_differential:
+
+            moving_frame = self.moving_frame_expression(angle_function)
+
+            # this is a reference
+            moving_frame_differential = maurer_cartan_form
+
+
+            for i in range(3):
+                for j in range(4):
+                    symbol = euclidean_matrix_coordinate[i,j]
+
+                    # the sympy subs method creates a copy of the expression
+                    # before substituting. This is nice for us because we
+                    # don't need to reconstruct the maurer-cartan form every time
+                    # we call this method
+                    moving_frame_differential = moving_frame_differential.subs(
+                        d(symbol), self.exterior_derivative(moving_frame[i,j])
+                    )
+
+
+            for i in range(3):
+                for j in range(4):
+                    symbol = euclidean_matrix_coordinate[i,j]
+                    moving_frame_differential = moving_frame_differential.subs(
+                        symbol, moving_frame[i,j])
+
+            self._moving_frame_differential[
+                angle_function] = matrix_map(
+                    moving_frame_differential,
+                    simplify
+                )
+
+
+
+        return self._moving_frame_differential[angle_function]
 
 
