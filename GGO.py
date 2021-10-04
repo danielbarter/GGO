@@ -257,17 +257,28 @@ class ConfigurationSpaceTemplate:
 
 
 
+
 class ConfigurationSpace:
     """
     class representing a configuration space on M points:
 
     C = { x^0, x^1, ..., x^{M-1} in R3 where x^i != x^j }
+
+    we represent an internal coordinate chart as a dictionary {
+        'distance_functions' : list of distance functions
+        'angle_functions' : list of angle functions
+        'moving_frame' : angle function
+    }
+
+    we represent a point as a dict
+    { i : (x coordinate, y_coordinate, z_coordinate) }
     """
 
     def __init__(self, M, template):
 
         self.M = M
         self.cartesian_coordinate = {}
+        self.cartesian_coordinate_differential_dummies = {}
         self.template = template
 
 
@@ -276,6 +287,13 @@ class ConfigurationSpace:
                 sp.Symbol('x_0^' + str(i)),
                 sp.Symbol('x_1^' + str(i)),
                 sp.Symbol('x_2^' + str(i))]
+
+        for i in range(M):
+            self.cartesian_coordinate_differential_dummies[i] = [
+                sp.Symbol('dx_0^' + str(i)),
+                sp.Symbol('dx_1^' + str(i)),
+                sp.Symbol('dx_2^' + str(i))]
+
 
 
         # cache dicts
@@ -286,6 +304,16 @@ class ConfigurationSpace:
         self._angle_differential = {}
         self._moving_frame_differential = {}
 
+
+    def validate_internal_coordinate_chart(self, internal_coordinate_chart):
+        if ('distance_functions' not in internal_coordinate_chart or
+            'angle_functions' not in internal_coordinate_chart or
+            'moving_frame' not in internal_coordinate_chart or
+            (len(internal_coordinate_chart['distance_functions']) +
+             len(internal_coordinate_chart['angle_functions']) != 3 * self.M - 6)
+            ):
+
+            raise Exception("not a valid internal coordinate chart")
 
     def validate_distance_function(self, distance_function):
         (i,j) = distance_function
@@ -472,3 +500,68 @@ class ConfigurationSpace:
             self._moving_frame_differential[angle_function] = template_expression
 
         return self._moving_frame_differential[angle_function]
+
+    def internal_coordinate_coframe(self, internal_coordinate_chart):
+
+        self.validate_internal_coordinate_chart(internal_coordinate_chart)
+
+        coframe = []
+        for distance_function in internal_coordinate_chart['distance_functions']:
+            coframe.append(self.distance_differential(distance_function))
+
+        for angle_function in internal_coordinate_chart['angle_functions']:
+            coframe.append(self.angle_differential(angle_function))
+
+        moving_frame_differential = self.moving_frame_differential(
+            internal_coordinate_chart['moving_frame'])
+
+        coframe.extend([
+            moving_frame_differential[0,1],
+            moving_frame_differential[0,2],
+            moving_frame_differential[1,2],
+            moving_frame_differential[0,3],
+            moving_frame_differential[1,3],
+            moving_frame_differential[2,3],
+        ])
+
+        return coframe
+
+    def internal_coordinate_coframe_at_point(
+            self,
+            internal_coordinate_chart,
+            point):
+
+
+        coframe = self.internal_coordinate_coframe(internal_coordinate_chart)
+
+        result = []
+
+        for component in coframe:
+            working_expression = component
+
+            for i in range(self.M):
+                for j in range(3):
+                    symbol = self.cartesian_coordinate[i][j]
+                    working_expression = working_expression.subs(
+                        d(symbol),
+                        self.cartesian_coordinate_differential_dummies[i][j]
+                    )
+
+            for i in range(self.M):
+                for j in range(3):
+                    symbol = self.cartesian_coordinate[i][j]
+                    working_expression = working_expression.subs(
+                        symbol,
+                        point[i][j]
+                    )
+
+            column = []
+            for i in range(self.M):
+                for j in range(3):
+                    column.append(
+                        float(sp.diff(
+                            working_expression,
+                            self.cartesian_coordinate_differential_dummies[i][j])))
+
+            result.append(column)
+        return sp.transpose(sp.Matrix(result))
