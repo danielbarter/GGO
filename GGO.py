@@ -92,7 +92,6 @@ class ConfigurationSpace:
 
         self.M = M
         self.cartesian_coordinate = {}
-        self.cartesian_coordinate_differential = {}
 
         for i in range(M):
             self.cartesian_coordinate[i] = [
@@ -100,12 +99,6 @@ class ConfigurationSpace:
                 sp.Symbol('x_1^' + str(i)),
                 sp.Symbol('x_2^' + str(i))]
 
-
-        for i in range(M):
-            self.cartesian_coordinate_differential[i] = [
-                d(symbol)
-                for symbol in self.cartesian_coordinate[i]
-            ]
 
         # cache dicts
         self._distance_expression = {}
@@ -252,7 +245,7 @@ class ConfigurationSpace:
         for i in self.cartesian_coordinate:
             for symbol, differential in zip(
                     self.cartesian_coordinate[i],
-                    self.cartesian_coordinate_differential[i]):
+                    d(self.cartesian_coordinate[i])):
 
                 accumulator += sp.diff(
                     expression,
