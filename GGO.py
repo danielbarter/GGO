@@ -202,7 +202,7 @@ class ConfigurationSpaceTemplate:
     """
 
     def __init__(self):
-        self.cartesian_coordinates = {
+        self.cartesian_coordinate = {
             0 : [
                 sp.Symbol('x_0'),
                 sp.Symbol('x_1'),
@@ -218,40 +218,42 @@ class ConfigurationSpaceTemplate:
         }
 
         self.distance_expression = distance_expression(
-            self.cartesian_coordinates[0],
-            self.cartesian_coordinates[1])
+            self.cartesian_coordinate[0],
+            self.cartesian_coordinate[1])
 
         self.angle_expression = angle_expression(
-            self.cartesian_coordinates[0],
-            self.cartesian_coordinates[1],
-            self.cartesian_coordinates[2])
+            self.cartesian_coordinate[0],
+            self.cartesian_coordinate[1],
+            self.cartesian_coordinate[2])
 
         self.moving_frame_expression = moving_frame_expression(
-            self.cartesian_coordinates[0],
-            self.cartesian_coordinates[1],
-            self.cartesian_coordinates[2])
+            self.cartesian_coordinate[0],
+            self.cartesian_coordinate[1],
+            self.cartesian_coordinate[2])
 
         self.distance_differential = distance_differential(
             self.distance_expression,
-            self.cartesian_coordinates[0],
-            self.cartesian_coordinates[1])
+            self.cartesian_coordinate[0],
+            self.cartesian_coordinate[1])
 
         self.angle_differential = angle_differential(
             self.angle_expression,
-            self.cartesian_coordinates[0],
-            self.cartesian_coordinates[1],
-            self.cartesian_coordinates[2])
+            self.cartesian_coordinate[0],
+            self.cartesian_coordinate[1],
+            self.cartesian_coordinate[2])
 
         self.moving_frame_differential = moving_frame_differential(
             self.moving_frame_expression,
-            self.cartesian_coordinates[0],
-            self.cartesian_coordinates[1],
-            self.cartesian_coordinates[2])
+            self.cartesian_coordinate[0],
+            self.cartesian_coordinate[1],
+            self.cartesian_coordinate[2])
 
 
-
-
-
+        # validating the moving frame differential
+        rotation_part = self.moving_frame_differential[0:3, 0:3]
+        defect = rotation_part + sp.transpose(rotation_part)
+        print("moving frame defect is",
+              matrix_map(defect, simplify))
 
 
 
@@ -322,10 +324,10 @@ class ConfigurationSpace:
             template_expression = self.template.distance_expression
 
             for (template_symbol, symbol) in zip(
-                    self.template.cartesian_coordinates[0] +
-                    self.template.cartesian_coordinates[1],
-                    self.cartesian_coordinates[i] +
-                    self.cartesian_coordinates[j]):
+                    self.template.cartesian_coordinate[0] +
+                    self.template.cartesian_coordinate[1],
+                    self.cartesian_coordinate[i] +
+                    self.cartesian_coordinate[j]):
 
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
@@ -350,12 +352,12 @@ class ConfigurationSpace:
             template_expression = self.template.angle_expression
 
             for (template_symbol, symbol) in zip(
-                    self.template.cartesian_coordinates[0] +
-                    self.template.cartesian_coordinates[1] +
-                    self.template.cartesian_coordinates[2],
-                    self.cartesian_coordinates[base] +
-                    self.cartesian_coordinates[i] +
-                    self.cartesian_coordinates[j]):
+                    self.template.cartesian_coordinate[0] +
+                    self.template.cartesian_coordinate[1] +
+                    self.template.cartesian_coordinate[2],
+                    self.cartesian_coordinate[base] +
+                    self.cartesian_coordinate[i] +
+                    self.cartesian_coordinate[j]):
 
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
@@ -379,12 +381,12 @@ class ConfigurationSpace:
             template_expression = self.template.moving_frame_expression
 
             for (template_symbol, symbol) in zip(
-                    self.template.cartesian_coordinates[0] +
-                    self.template.cartesian_coordinates[1] +
-                    self.template.cartesian_coordinates[2],
-                    self.cartesian_coordinates[base] +
-                    self.cartesian_coordinates[i] +
-                    self.cartesian_coordinates[j]):
+                    self.template.cartesian_coordinate[0] +
+                    self.template.cartesian_coordinate[1] +
+                    self.template.cartesian_coordinate[2],
+                    self.cartesian_coordinate[base] +
+                    self.cartesian_coordinate[i] +
+                    self.cartesian_coordinate[j]):
 
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
@@ -404,10 +406,10 @@ class ConfigurationSpace:
             template_expression = self.template.distance_differential
 
             for (template_symbol, symbol) in zip(
-                    self.template.cartesian_coordinates[0] +
-                    self.template.cartesian_coordinates[1],
-                    self.cartesian_coordinates[i] +
-                    self.cartesian_coordinates[j]):
+                    self.template.cartesian_coordinate[0] +
+                    self.template.cartesian_coordinate[1],
+                    self.cartesian_coordinate[i] +
+                    self.cartesian_coordinate[j]):
 
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
@@ -427,12 +429,12 @@ class ConfigurationSpace:
             template_expression = self.template.angle_differential
 
             for (template_symbol, symbol) in zip(
-                    self.template.cartesian_coordinates[0] +
-                    self.template.cartesian_coordinates[1] +
-                    self.template.cartesian_coordinates[2],
-                    self.cartesian_coordinates[base] +
-                    self.cartesian_coordinates[i] +
-                    self.cartesian_coordinates[j]):
+                    self.template.cartesian_coordinate[0] +
+                    self.template.cartesian_coordinate[1] +
+                    self.template.cartesian_coordinate[2],
+                    self.cartesian_coordinate[base] +
+                    self.cartesian_coordinate[i] +
+                    self.cartesian_coordinate[j]):
 
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
@@ -457,12 +459,12 @@ class ConfigurationSpace:
             template_expression = self.template.moving_frame_differential
 
             for (template_symbol, symbol) in zip(
-                    self.template.cartesian_coordinates[0] +
-                    self.template.cartesian_coordinates[1] +
-                    self.template.cartesian_coordinates[2],
-                    self.cartesian_coordinates[base] +
-                    self.cartesian_coordinates[i] +
-                    self.cartesian_coordinates[j]):
+                    self.template.cartesian_coordinate[0] +
+                    self.template.cartesian_coordinate[1] +
+                    self.template.cartesian_coordinate[2],
+                    self.cartesian_coordinate[base] +
+                    self.cartesian_coordinate[i] +
+                    self.cartesian_coordinate[j]):
 
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
