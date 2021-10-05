@@ -564,4 +564,4 @@ class ConfigurationSpace:
                             self.cartesian_coordinate_differential_dummies[i][j])))
 
             result.append(column)
-        return sp.transpose(sp.Matrix(result))
+        return sp.Matrix(result)
