@@ -12,7 +12,7 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-def matrix_map(matrix, func, num_threads=8):
+def matrix_map(matrix, func):
     (m,n) = matrix.shape
     entry_list = []
     for i in range(m):
@@ -20,7 +20,7 @@ def matrix_map(matrix, func, num_threads=8):
             entry_list.append(matrix[i,j])
 
 
-    with Pool(min(m * n, num_threads)) as p:
+    with Pool(m * n) as p:
         entry_list_simplified = p.map(func, entry_list)
 
     return sp.Matrix(list(chunks(entry_list_simplified, n)))
@@ -249,12 +249,14 @@ class ConfigurationSpaceTemplate:
             self.cartesian_coordinate[2])
 
 
-        # validating the moving frame differential
-        rotation_part = self.moving_frame_differential[0:3, 0:3]
-        defect = rotation_part + sp.transpose(rotation_part)
         print("moving frame defect is",
-              matrix_map(defect, simplify))
+            validate_moving_frame_differential(
+                self.moving_frame_differential))
 
+def validate_moving_frame_differential(m):
+    rotation_part = m[0:3, 0:3]
+    defect = rotation_part + sp.transpose(rotation_part)
+    return matrix_map(defect, simplify)
 
 
 
@@ -278,7 +280,11 @@ class ConfigurationSpace:
 
         self.M = M
         self.cartesian_coordinate = {}
-        self.cartesian_coordinate_differential_dummies = {}
+
+        # since we are going to be substituting in values for coordinates
+        # but want to leave the differentials untouched, it is useful to
+        # replace the compund differentials d(x) with a single symbol dx
+        self.cartesian_coordinate_differential = {}
         self.template = template
 
 
@@ -289,7 +295,7 @@ class ConfigurationSpace:
                 sp.Symbol('x_2^' + str(i))]
 
         for i in range(M):
-            self.cartesian_coordinate_differential_dummies[i] = [
+            self.cartesian_coordinate_differential[i] = [
                 sp.Symbol('dx_0^' + str(i)),
                 sp.Symbol('dx_1^' + str(i)),
                 sp.Symbol('dx_2^' + str(i))]
@@ -433,12 +439,17 @@ class ConfigurationSpace:
             (i,j) = distance_function
             template_expression = self.template.distance_differential
 
-            for (template_symbol, symbol) in zip(
+            for (template_symbol, symbol, dsymbol) in zip(
                     self.template.cartesian_coordinate[0] +
                     self.template.cartesian_coordinate[1],
                     self.cartesian_coordinate[i] +
-                    self.cartesian_coordinate[j]):
+                    self.cartesian_coordinate[j],
+                    self.cartesian_coordinate_differential[i] +
+                    self.cartesian_coordinate_differential[j]
+            ):
 
+                template_expression = template_expression.subs(
+                    d(template_symbol), dsymbol)
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
 
@@ -456,14 +467,20 @@ class ConfigurationSpace:
             (base, i, j) = angle_function
             template_expression = self.template.angle_differential
 
-            for (template_symbol, symbol) in zip(
+            for (template_symbol, symbol, dsymbol) in zip(
                     self.template.cartesian_coordinate[0] +
                     self.template.cartesian_coordinate[1] +
                     self.template.cartesian_coordinate[2],
                     self.cartesian_coordinate[base] +
                     self.cartesian_coordinate[i] +
-                    self.cartesian_coordinate[j]):
+                    self.cartesian_coordinate[j],
+                    self.cartesian_coordinate_differential[base] +
+                    self.cartesian_coordinate_differential[i] +
+                    self.cartesian_coordinate_differential[j]
+            ):
 
+                template_expression = template_expression.subs(
+                    d(template_symbol), dsymbol)
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
 
@@ -486,14 +503,21 @@ class ConfigurationSpace:
             (base, i, j) = angle_function
             template_expression = self.template.moving_frame_differential
 
-            for (template_symbol, symbol) in zip(
+            for (template_symbol, symbol, dsymbol) in zip(
                     self.template.cartesian_coordinate[0] +
                     self.template.cartesian_coordinate[1] +
                     self.template.cartesian_coordinate[2],
                     self.cartesian_coordinate[base] +
                     self.cartesian_coordinate[i] +
-                    self.cartesian_coordinate[j]):
+                    self.cartesian_coordinate[j],
+                    self.cartesian_coordinate_differential[base] +
+                    self.cartesian_coordinate_differential[i] +
+                    self.cartesian_coordinate_differential[j]
 
+            ):
+
+                template_expression = template_expression.subs(
+                    d(template_symbol), dsymbol)
                 template_expression = template_expression.subs(
                     template_symbol, symbol)
 
@@ -501,67 +525,3 @@ class ConfigurationSpace:
 
         return self._moving_frame_differential[angle_function]
 
-    def internal_coordinate_coframe(self, internal_coordinate_chart):
-
-        self.validate_internal_coordinate_chart(internal_coordinate_chart)
-
-        coframe = []
-        for distance_function in internal_coordinate_chart['distance_functions']:
-            coframe.append(self.distance_differential(distance_function))
-
-        for angle_function in internal_coordinate_chart['angle_functions']:
-            coframe.append(self.angle_differential(angle_function))
-
-        moving_frame_differential = self.moving_frame_differential(
-            internal_coordinate_chart['moving_frame'])
-
-        coframe.extend([
-            moving_frame_differential[0,1],
-            moving_frame_differential[0,2],
-            moving_frame_differential[1,2],
-            moving_frame_differential[0,3],
-            moving_frame_differential[1,3],
-            moving_frame_differential[2,3],
-        ])
-
-        return coframe
-
-    def internal_coordinate_coframe_at_point(
-            self,
-            internal_coordinate_chart,
-            point):
-
-
-        coframe = self.internal_coordinate_coframe(internal_coordinate_chart)
-
-        result = []
-
-        for component in coframe:
-            working_expression = component
-
-            for i in range(self.M):
-                for j in range(3):
-                    symbol = self.cartesian_coordinate[i][j]
-                    working_expression = working_expression.subs(
-                        d(symbol),
-                        self.cartesian_coordinate_differential_dummies[i][j]
-                    )
-
-            for i in range(self.M):
-                for j in range(3):
-                    symbol = self.cartesian_coordinate[i][j]
-                    working_expression = working_expression.subs(
-                        symbol,
-                        point[i][j]
-                    )
-
-            column = []
-            for i in range(self.M):
-                for j in range(3):
-                    column.append(
-                        float(sp.diff(
-                            working_expression,
-                            self.cartesian_coordinate_differential_dummies[i][j])))
-
-            result.append(column)
-        return sp.Matrix(result)
